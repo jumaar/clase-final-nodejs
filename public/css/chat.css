@@ -140,6 +140,8 @@ body.dark-mode #messages > li.received {
   border: 0;
   margin: 4px;
   border-radius: 4px;
+  width: 60px;
+  padding: 8px;
 }
 
 #form>button:hover {
