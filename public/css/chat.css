@@ -40,37 +40,40 @@
 }
 
 #messages > li.sent {
-  position: relative; /* Necesario para posicionar el botón de borrar de forma absoluta. */
+  position: relative; /* Necesario para posicionar el botón de borrar. */
   align-self: flex-end;
   background-color: #007bff;
   color: white;
-  margin-left: 40px; /* Añadimos margen para dar espacio al botón de borrar. */
+  padding-left: 30px; /* Creamos espacio a la izquierda DENTRO de la burbuja. */
 }
 
 /*
  * Estilos para el botón de borrar.
- * Se hace siempre visible (opacity: 1) para asegurar la funcionalidad en
- * dispositivos táctiles (móviles/celulares) donde el efecto :hover no existe.
+ * Se posiciona de forma absoluta DENTRO del padding del mensaje.
 */
 .delete-button {
   position: absolute;
-  left: -40px; /* Ajustamos la posición a la izquierda, fuera de la burbuja. */
+  left: 8px; /* Posición dentro del padding. */
   top: 50%;
   transform: translateY(-50%);
-  background: transparent !important; /* Forzamos fondo transparente para anular herencias. */
+  background: transparent !important;
   border: none;
-  font-size: 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
-  color: #aaa;
-  opacity: 1;
+  color: #e0e0e0;
+  opacity: 0.7;
   padding: 5px;
+  transition: opacity 0.2s;
+}
+
+.delete-button:hover {
+  opacity: 1;
 }
 
 #messages > li.received {
   align-self: flex-start;
   background-color: #e9e9eb;
   color: black;
-  margin-right: 40px; /* Añadimos margen para mantener la simetría. */
 }
 
 /* Estilos para la cabecera del mensaje (usuario y fecha) */
@@ -124,7 +127,7 @@ body.dark-mode #messages > li.received {
 #input {
   border-radius: 9999px;
   border: 1px solid #eee;
-  flex: 1;
+  flex: 1; /* <- Esta es la propiedad clave. Le dice al input que "crezca" y ocupe el espacio sobrante */
   margin: 4px;
   padding: 0 8px;
 }
