@@ -125,10 +125,9 @@ body.dark-mode #messages > li.received {
 #input {
   border-radius: 9999px;
   border: 1px solid #eee;
-  flex-grow: 1; /* Hacemos explícito que el input debe crecer */
+  flex: 1; /* <- Esta es la propiedad clave. Le dice al input que "crezca" y ocupe el espacio sobrante */
   margin: 4px;
-  padding: 0 12px; /* Un poco más de padding para que no se vea tan pegado */
-  width: 0; /* Base de ancho para que flex-grow funcione correctamente */
+  padding: 0 8px;
 }
 
 #input:focus {
@@ -141,8 +140,6 @@ body.dark-mode #messages > li.received {
   border: 0;
   margin: 4px;
   border-radius: 4px;
-  width: 80px; /* Ancho fijo para el botón */
-  flex-shrink: 0; /* Evita que el botón se encoja */
 }
 
 #form>button:hover {
