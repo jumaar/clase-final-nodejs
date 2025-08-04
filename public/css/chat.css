@@ -29,19 +29,81 @@ body {
   padding-bottom: 48px;
 }
 
-#messages>li {
-  padding: .5rem;
+#messages {
   display: flex;
   flex-direction: column;
 }
 
-#messages > li.sent {
-  align-items: flex-end;
+/* Estilos para las burbujas de chat */
+#messages > li {
+  padding: .5rem 1rem;
+  margin-bottom: 10px;
+  border-radius: 18px;
+  max-width: 70%;
+  word-wrap: break-word; /* Para que el texto largo no rompa el diseño */
 }
 
-/* Estilos para el modo claro */
-#messages > li:not(.sent):nth-child(odd) {
-  background: #f0f0f0;
+#messages > li.sent {
+  position: relative; /* Necesario para posicionar el botón de borrar de forma absoluta */
+  align-self: flex-end;
+  background-color: #007bff;
+  color: white;
+}
+
+/* Estilos para el botón de borrar */
+.delete-button {
+  position: absolute;
+  left: -35px; /* Lo posiciona a la izquierda de la burbuja del mensaje */
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #aaa;
+  opacity: 0; /* Por defecto es invisible */
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Hacemos visible el botón cuando el usuario pasa el ratón sobre su mensaje */
+#messages > li.sent:hover .delete-button {
+  opacity: 1;
+}
+
+#messages > li.received {
+  align-self: flex-start;
+  background-color: #e9e9eb;
+  color: black;
+}
+
+/* Estilos para la cabecera del mensaje (usuario y fecha) */
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+#messages > li.sent .message-header {
+  color: #f0f0f0; /* Un color más claro para el texto del header en las burbujas enviadas */
+}
+
+.message-header strong {
+  margin-right: 8px; /* Espacio entre el nombre y la hora */
+}
+
+#messages p {
+  margin: 0; /* Quitamos el margen por defecto del párrafo */
+}
+
+/* Estilos para el modo oscuro */
+@media (prefers-color-scheme: dark) {
+  #messages > li.received {
+    background-color: #2c2c2c;
+    color: #f0f0f0;
+  }
 }
 
 /* Estilos para el modo oscuro, usando las capacidades del navegador */
