@@ -8,73 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: "Roboto", sans-serif;
-            background-color: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100hv;
-            margin: 0;
-        }
-
-        .container { 
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: 100vh;
-        }
-
-        .form-container {
-            background-color: #fff;
-            padding: 20px;
-            margin: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        form h2 {
-            margin-bottom: 20px;
-            font-size: 24px;
-            text-align: center;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        input{
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #28a745;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        button:hover{
-            background-color: #218838;
-        }
-    </style>
+    <!-- Vinculamos la hoja de estilos principal -->
+    <link rel="stylesheet" href="/css/main.css">
 </head>
 <body>
     <div class="container">
@@ -146,7 +81,7 @@
                     loginSpan.innerText = 'Sesion Iniciada... Entrando...'
                     loginSpan.style.color = 'green'
                     setTimeout(() => {
-                        window.location.href = '/protected'
+                        window.location.href = '/chat'
                     }, 1200)
                 }else{
                     loginSpan.innerText = 'Error al iniciar sesion'
@@ -188,7 +123,7 @@
             })
               .then(res => {
                 if(res.ok){
-                    window.location.href = '/protected'
+                    window.location.href = '/chat'
                 }else{
                     loginSpan.innerText = 'Error al iniciar sesion'
                     loginSpan.style.color = 'red'
