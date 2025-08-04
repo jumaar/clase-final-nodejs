@@ -58,3 +58,19 @@ form.addEventListener('submit', (e) => {
     input.value = ''
   }
 })
+
+// --- Lógica para Cerrar Sesión ---
+const logoutButton = document.getElementById('logout-button')
+
+logoutButton.addEventListener('click', () => {
+  fetch('/logout', {
+    method: 'POST'
+  }).then(res => {
+    if (res.ok) {
+      // Si el logout es exitoso, redirigimos a la página principal.
+      window.location.href = '/'
+    }
+  }).catch(error => {
+    console.error('Error al cerrar sesión:', error)
+  })
+})
