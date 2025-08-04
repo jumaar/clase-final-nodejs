@@ -132,7 +132,7 @@ body.dark-mode #messages > li.received {
 }
 
 #form>button {
-  background: #09f;
+  background: rgb(21, 255, 0);
   color: #fff;
   border: 0;
   margin: 4px;
