@@ -1,5 +1,6 @@
 export const {
   PORT = 3000,
   SALT_ROUND = 10,
-  SECRET_JWT_KEY = 'this-is-an-awesome-secret-key-mucho-mas-largo-y-muy-seguro'
+  SECRET_JWT_KEY = 'this-is-an-awesome-secret-key-mucho-mas-largo-y-muy-seguro',
+  MONGODB_URI = 'mongodb://localhost:27017/chatdb'
 } = process.env

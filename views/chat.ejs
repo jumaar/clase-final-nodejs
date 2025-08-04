@@ -1,68 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>miduChat</title>
-
-  <script type="module">
-    import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js'
-
-    const getUsername = () => {
-      const username = localStorage.getItem('username')
-      if (username) {
-        console.log(`User existed ${username}`)
-        return username
-      }
-
-      // The old API is down, so we generate a random username locally
-      const randomUsername = `user-${Math.floor(Math.random() * 100000)}`
-      localStorage.setItem('username', randomUsername)
-      return randomUsername
-    }
-
-    const socket = io('http://localhost:3000', {
-      auth: {
-        username: getUsername(),
-        serverOffset: 0
-      }
-    })
-
-    const form = document.getElementById('form')
-    const input = document.getElementById('input')
-    const messages = document.getElementById('messages')
-
-    const selfUsername = socket.auth.username
-
-    socket.on('chat message', (msg, serverOffset, username) => {
-      // --- LÍNEA DE DEPURACIÓN ---
-      // Esta línea nos dirá si el mensaje llega correctamente del servidor.
-      console.log('Mensaje recibido del servidor:', { msg, username })
-      const item = document.createElement('li')
-      item.innerHTML = `<p>${msg}</p><small>${username}</small>`
-
-      // Si el mensaje es del usuario actual, añade una clase para estilizarlo
-      if (username === selfUsername) {
-        item.classList.add('sent')
-      }
-
-      messages.appendChild(item)
-      socket.auth.serverOffset = serverOffset
-      messages.scrollTop = messages.scrollHeight
-    })
-
-    form.addEventListener('submit', (e) => {
-      e.preventDefault()
-
-      if (input.value) {
-        socket.emit('chat message', input.value)
-        input.value = ''
-      }
-    })
-  </script>
+  <title>Chat Protegido</title>
 
   <style>
+    /* --- Estilos del Chat --- */
+    /* Estos estilos son los mismos que tenías en client/index.html */
+    /* Los he movido aquí para que estén junto a su estructura HTML. */
     *,
     *::before,
     *::after {
@@ -103,10 +50,12 @@
       align-items: flex-end;
     }
 
+    /* Estilos para el modo claro */
     #messages > li:not(.sent):nth-child(odd) {
       background: #f0f0f0;
     }
 
+    /* Estilos para el modo oscuro, usando las capacidades del navegador */
     @media (prefers-color-scheme: dark) {
       #messages > li:not(.sent):nth-child(odd) {
         background: #2c2c2c;
@@ -159,14 +108,29 @@
 </head>
 
 <body>
+  <!--
+    Elemento oculto para pasar datos del servidor (EJS) al cliente (JavaScript).
+    Incrustamos el nombre de usuario en un atributo data-username.
+    Nuestro script 'chat.js' leerá este valor para identificarse.
+  -->
+  <div id="user-info" data-username="<%= user.username %>" style="display: none;"></div>
+
+  <!-- Esta es la estructura HTML del chat, también de client/index.html -->
   <section id="chat">
     <ul id="messages"></ul>
     <form id="form">
-      <input type="text" name="message" id="input" placeholder="Type a message" autocomplete="off" />
+      <input type="text" name="message" id="input" placeholder="Escribe un mensaje..." autocomplete="off" />
       <button type="submit">Enviar</button>
     </form>
   </section>
 
+  <!--
+    Aquí está la magia de la integración.
+    Cargamos el script del chat que externalizamos antes.
+    La ruta '/js/chat.js' funcionará porque en el siguiente paso
+    le diremos a Express que la carpeta 'public' es nuestro directorio de estáticos.
+  -->
+  <script type="module" src="/js/chat.js"></script>
 </body>
 
 </html>
