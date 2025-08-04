@@ -27,9 +27,6 @@ body {
   height: 100%;
   scroll-behavior: smooth;
   padding-bottom: 48px;
-}
-
-#messages {
   display: flex;
   flex-direction: column;
 }
@@ -66,16 +63,10 @@ body {
   font-size: 1rem;
   cursor: pointer;
   color: #aaa;
-<<<<<<< HEAD
-}
-
-
-=======
   opacity: 1; /* Hacemos el botón siempre visible */
 }
 
 /* La regla :hover ha sido eliminada para compatibilidad con móviles. */
->>>>>>> 39f5dd5e96d8a134ec77484ec25b0f545b8a89db
 
 #messages > li.received {
   align-self: flex-start;
