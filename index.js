@@ -213,10 +213,30 @@ app.post('/login', async (req, res) => {
 app.post('/register', async (req, res) => {
   const { username, password } = req.body
   try {
+    // 1. Creamos el nuevo usuario.
     const id = await UserRepository.create({ username, password })
-    res.send({ id })
+
+    // 2. Inmediatamente después, creamos su token de sesión.
+    const token = jwt.sign(
+      { id, username }, // Usamos los datos que ya tenemos.
+      SECRET_JWT_KEY,
+      { expiresIn: '1h' }
+    )
+
+    // 3. Establecemos la cookie y enviamos una respuesta de éxito.
+    //    Ahora esta ruta registra E inicia sesión a la vez.
+    return res
+      .cookie('access_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 1000 * 60 * 60
+      })
+      .status(201)
+      .send({ id, username })
   } catch (error) {
-    res.status(400).send({ error: error.message })
+    // Si hay un error (ej. usuario ya existe), lo enviamos como JSON.
+    res.status(400).json({ error: error.message })
   }
 })
 

@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="/css/main.css">
 </head>
 <body>
+    <button id="theme-toggle-button" class="theme-toggle-button">🌙</button>
     <div class="container">
         <% if (typeof username !== 'undefined') { %>
             <div class="form-container">
@@ -126,26 +127,19 @@
             })
             .then(res => {
                 if(res.ok) {
+                    // Si el registro es exitoso, el servidor ya ha iniciado la sesión.
+                    // Simplemente mostramos un mensaje y redirigimos.
                     registerSpan.innerText = 'Usuario Registrado. Entrando...'
                     registerSpan.style.color = 'green'
                     setTimeout(() => {
-                        fetch('/login', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username, password })
-                        })
-                        .then(res => {
-                            if(res.ok) {
-                                window.location.href = '/chat'
-                            } else {
-                                loginSpan.innerText = 'Error al iniciar sesión'
-                                loginSpan.style.color = 'red'
-                            }
-                        })
+                        window.location.href = '/chat'
                     }, 1200)
                 } else {
-                    registerSpan.innerText = 'Error al registrar usuario'
-                    registerSpan.style.color = 'red'
+                    // Si hay un error, lo mostramos.
+                    res.json().then(data => {
+                        registerSpan.innerText = data.error
+                        registerSpan.style.color = 'red'
+                    })
                 }
             })
         })
@@ -163,5 +157,6 @@
             })
         })
     </script>
+    <script src="/js/theme-switcher.js"></script>
 </body>
 </html>
