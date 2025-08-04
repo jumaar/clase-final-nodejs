@@ -22,48 +22,70 @@
         <% } %>
 
             <% if (typeof username === 'undefined') { %>
-                <div class="form-container">
-                    <form id="login-form">
-                        <h2>Login</h2>
-                        <label for="login-username">Username</label>
-                        <input type="text" id="login-username" name="username" required>
-
-                        <label for="login-password">Password</label>
-                        <input type="password" id="login-password" name="password" required>
-
-                        <button type="submit">Login</button>
-                        <span>&nbsp;</span>
-                    </form>        
+                <!-- Contenedor del Login (Visible por defecto) -->
+                <div id="login-container">
+                    <div class="form-container">
+                        <form id="login-form">
+                            <h2>Login</h2>
+                            <label for="login-username">Username</label>
+                            <input type="text" id="login-username" name="username" required>
+                            <label for="login-password">Password</label>
+                            <input type="password" id="login-password" name="password" required>
+                            <button type="submit">Login</button>
+                            <span class="form-message">&nbsp;</span>
+                        </form>
+                        <p class="toggle-link">¿No tienes cuenta? <a href="#" id="show-register-link">Regístrate</a></p>
+                    </div>
                 </div>
 
-                <div class="form-container">
-                    <form id="register-form">
-                        <h2>Register</h2>
-                        <label for="register-username">Username</label>
-                        <input type="text" id="register-username" name="username" required>
-
-                        <label for="register-password">Password</label>
-                        <input type="password" id="register-password" name="password" required>
-
-                        <label for="register-confirm-password">Confirm Password</label>
-                        <input type="password" id="resgister-confirm-password" name="confirm-password" required>
-                        <span>&nbsp;</span>
-                        <button type="submit">Register</button>
-                    </form>
+                <!-- Contenedor del Registro (Oculto por defecto) -->
+                <div id="register-container" style="display: none;">
+                    <div class="form-container">
+                        <form id="register-form">
+                            <h2>Register</h2>
+                            <label for="register-username">Username</label>
+                            <input type="text" id="register-username" name="username" required>
+                            <label for="register-password">Password</label>
+                            <input type="password" id="register-password" name="password" required>
+                            <label for="register-confirm-password">Confirm Password</label>
+                            <input type="password" id="register-confirm-password" name="confirm-password" required>
+                            <button type="submit">Register</button>
+                            <span class="form-message">&nbsp;</span>
+                        </form>
+                        <p class="toggle-link">¿Ya tienes cuenta? <a href="#" id="show-login-link">Inicia sesión</a></p>
+                    </div>
                 </div>
           <% } %>    
     </div>
     <script>
         const $ = el => document.querySelector(el)
 
+        // --- Lógica para alternar formularios ---
+        const loginContainer = $('#login-container')
+        const registerContainer = $('#register-container')
+        const showRegisterLink = $('#show-register-link')
+        const showLoginLink = $('#show-login-link')
+
+        showRegisterLink?.addEventListener('click', e => {
+            e.preventDefault()
+            loginContainer.style.display = 'none'
+            registerContainer.style.display = 'block'
+        })
+
+        showLoginLink?.addEventListener('click', e => {
+            e.preventDefault()
+            registerContainer.style.display = 'none'
+            loginContainer.style.display = 'block'
+        })
+
+        // --- Lógica de la Aplicación ---
         const loginForm = $('#login-form')
-        const loginSpan = $('#login-form span')
-
+        const loginSpan = $('#login-form .form-message')
         const registerForm = $('#register-form')
-        const registerSpan = $('#register-form span')
-
+        const registerSpan = $('#register-form .form-message')
         const logoutButton = $('#close-session')
 
+        // --- Lógica de Forms (Login/Register/Logout) ---
         loginForm?.addEventListener('submit', e => {
             e.preventDefault()
             const username = $('#login-username').value
@@ -71,85 +93,75 @@
             
             fetch('/login', {
                 method: 'POST',
-                headers:{
-                    'Content-Type': 'application/json'
-                },
+                headers:{ 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             })
-              .then(res =>{
-                if (res.ok){
-                    loginSpan.innerText = 'Sesion Iniciada... Entrando...'
+            .then(res => {
+                if (res.ok) {
+                    loginSpan.innerText = 'Sesión Iniciada... Entrando...'
                     loginSpan.style.color = 'green'
-                    setTimeout(() => {
-                        window.location.href = '/chat'
-                    }, 1200)
-                }else{
-                    loginSpan.innerText = 'Error al iniciar sesion'
+                    setTimeout(() => { window.location.href = '/chat' }, 1200)
+                } else {
+                    loginSpan.innerText = 'Error al iniciar sesión'
                     loginSpan.style.color = 'red'
                 }
-              })
             })
+        })
         
         registerForm?.addEventListener('submit', e => {
             e.preventDefault()
             const username = $('#register-username').value
             const password = $('#register-password').value
-            const confirmPassword = $('#resgister-confirm-password').value
-            console.log(username, password, confirmPassword)
-            if ( password != confirmPassword) {
-                alert('Passwords do not match')
+            const confirmPassword = $('#register-confirm-password').value
+
+            if (password !== confirmPassword) {
+                alert('Las contraseñas no coinciden')
                 return
             }
 
             fetch('/register', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             })
-              .then(res => {
-                console.log(res)
-                if(res.ok){
+            .then(res => {
+                if(res.ok) {
                     registerSpan.innerText = 'Usuario Registrado. Entrando...'
                     registerSpan.style.color = 'green'
                     setTimeout(() => {
                         fetch('/login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                            },
-                body: JSON.stringify({ username, password })
-            })
-              .then(res => {
-                if(res.ok){
-                    window.location.href = '/chat'
-                }else{
-                    loginSpan.innerText = 'Error al iniciar sesion'
-                    loginSpan.style.color = 'red'
-                }
-              })
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username, password })
+                        })
+                        .then(res => {
+                            if(res.ok) {
+                                window.location.href = '/chat'
+                            } else {
+                                loginSpan.innerText = 'Error al iniciar sesión'
+                                loginSpan.style.color = 'red'
+                            }
+                        })
                     }, 1200)
-                }else{
+                } else {
                     registerSpan.innerText = 'Error al registrar usuario'
                     registerSpan.style.color = 'red'
                 }
-              })
             })
+        })
 
-            logoutButton?.addEventListener('click', e => {
-                e.preventDefault()
-                fetch('/logout', {
-                    method: 'POST',
-                    headers:{
-                        'Content-Type': 'application/json'
-                    }
-                })
-                  .then(res => {
-                    console.log(res)
-                    window.location.href = ('/')
-                })
+        logoutButton?.addEventListener('click', e => {
+            e.preventDefault()
+            fetch('/logout', {
+                method: 'POST',
+                headers:{ 'Content-Type': 'application/json' }
             })
+            .then(res => {
+                if (res.ok) {
+                    window.location.href = '/'
+                }
+            })
+        })
     </script>
 </body>
 </html>

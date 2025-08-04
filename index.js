@@ -128,20 +128,21 @@ io.on('connection', async (socket) => {
 
   // Escucha el evento 'chat message' que envía el cliente.
   socket.on('chat message', async (msg) => {
-    let result
-    // ¡La fuente de la verdad! Usamos el nombre de usuario del socket verificado.
-    // Ya no confiamos en NADA que el cliente pueda enviar en el 'handshake'.
     const username = socket.user.username
+      const message = {
+        content: msg,
+        user: username,
+        timestamp: new Date()
+      }
+
     try {
-      // Guardamos el mensaje en la base de datos con el nombre de usuario correcto y verificado.
-      result = await messagesCollection.insertOne({ content: msg, user: username })
+        // Guardamos el objeto de mensaje completo en la base de datos.
+        const result = await messagesCollection.insertOne(message)
+        // Emitimos el mensaje a todos, incluyendo el nuevo timestamp.
+        io.emit('chat message', message.content, result.insertedId.toString(), message.user, message.timestamp)
     } catch (e) {
       console.error(e)
-      return
     }
-
-    // Emitimos el mensaje a todos con el nombre de usuario verificado.
-    io.emit('chat message', msg, result.insertedId.toString(), username)
   })
 
   // Lógica para recuperar mensajes si el cliente se desconectó temporalmente.
@@ -151,12 +152,34 @@ io.on('connection', async (socket) => {
       const query = serverOffset ? { _id: { $gt: new ObjectId(serverOffset) } } : {}
       const results = await messagesCollection.find(query).toArray()
       results.forEach(row => {
-        socket.emit('chat message', row.content, row._id.toString(), row.user)
+        // Añadimos el timestamp al emitir los mensajes recuperados.
+        socket.emit('chat message', row.content, row._id.toString(), row.user, row.timestamp)
       })
     } catch (e) {
       console.error(e)
     }
   }
+
+  // Escucha el evento para borrar un mensaje.
+  socket.on('delete message', async (messageId) => {
+    try {
+      const objectId = new ObjectId(messageId)
+      // Buscamos el mensaje en la base de datos.
+      const message = await messagesCollection.findOne({ _id: objectId })
+
+      // Medida de seguridad: verificamos que el mensaje existe y que el usuario que solicita el borrado es el autor.
+      if (message && message.user === socket.user.username) {
+        await messagesCollection.deleteOne({ _id: objectId })
+        // Notificamos a todos los clientes que este mensaje debe ser eliminado.
+        io.emit('message deleted', messageId)
+      } else {
+        // Si alguien intenta borrar un mensaje que no es suyo, lo podemos registrar.
+        console.log(`Intento de borrado no autorizado por ${socket.user.username} para el mensaje ${messageId}`)
+      }
+    } catch (e) {
+      console.error('Error al borrar el mensaje:', e)
+    }
+  })
 })
 
 // --- Rutas HTTP (Endpoints de la API y Vistas) ---
