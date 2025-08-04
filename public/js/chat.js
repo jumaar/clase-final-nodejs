@@ -32,18 +32,55 @@ const selfUsername = username
 // --- Manejo de Eventos de Socket.IO ---
 
 // Se ejecuta cuando el servidor nos envía un evento 'chat message'.
-socket.on('chat message', (msg, serverOffset, msgUsername) => {
+socket.on('chat message', (msg, serverOffset, msgUsername, timestamp) => {
   const item = document.createElement('li')
-  item.innerHTML = `<p>${msg}</p><small>${msgUsername}</small>`
+  const time = new Date(timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
 
-  // Comparamos el nombre de usuario del mensaje con el nuestro para el estilo.
+  // Guardamos el ID del mensaje en el propio elemento LI para encontrarlo fácilmente después.
+  item.dataset.id = serverOffset
+
+  let messageHTML = `
+    <header class="message-header">
+      <strong>${msgUsername}</strong>
+      <time>${time}</time>
+    </header>
+    <p>${msg}</p>
+  `
+
+  // Comparamos el nombre de usuario del mensaje con el nuestro para el estilo y para añadir el botón.
   if (msgUsername === selfUsername) {
     item.classList.add('sent')
+    // Solo añadimos el botón de borrar a nuestros propios mensajes.
+    messageHTML += `<button class="delete-button" data-id="${serverOffset}">🗑️</button>`
+  } else {
+    item.classList.add('received')
   }
 
+  item.innerHTML = messageHTML
   messages.appendChild(item)
   socket.auth.serverOffset = serverOffset
   messages.scrollTop = messages.scrollHeight
+})
+
+// Escuchamos clics en la lista de mensajes (delegación de eventos)
+messages.addEventListener('click', (e) => {
+  // Si el elemento clickeado es un botón de borrar
+  if (e.target.classList.contains('delete-button')) {
+    // Obtenemos el ID del mensaje del atributo data-id del botón.
+    const messageId = e.target.dataset.id
+    // Enviamos el evento al servidor para que borre el mensaje.
+    socket.emit('delete message', messageId)
+  }
+})
+
+// Escuchamos el evento del servidor que nos informa que un mensaje ha sido borrado.
+socket.on('message deleted', (messageId) => {
+  // Buscamos el elemento del mensaje en el DOM usando su data-id.
+  const messageElement = document.querySelector(`li[data-id="${messageId}"]`)
+  if (messageElement) {
+    // Si lo encontramos, lo eliminamos.
+    messageElement.remove()
+  }
 })
 
 // --- Manejo de Eventos del DOM ---
