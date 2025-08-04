@@ -1,45 +1,63 @@
-// --- Lógica del Cliente del Chat ---
+// =============================================================================
+// --- LÓGICA DEL CLIENTE PARA EL CHAT ---
+// Este archivo maneja toda la interactividad del lado del cliente:
+// 1. Conexión con el servidor de WebSockets (Socket.IO).
+// 2. Envío y recepción de mensajes de chat en tiempo real.
+// 3. Renderizado de mensajes en el DOM.
+// 4. Manejo de la eliminación de mensajes.
+// 5. Lógica para cerrar la sesión del usuario.
+// =============================================================================
 
-// Importamos la librería de cliente de Socket.IO desde un CDN.
 import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js'
 
-// --- Obtención del Nombre de Usuario Real ---
-// ¡Adiós al nombre de usuario aleatorio! Ahora leemos la identidad del DOM.
-// El servidor, a través de EJS, ha incrustado el nombre de usuario en este elemento.
+// --- Obtención de Datos del Usuario desde el DOM ---
+// El servidor (usando EJS) ha renderizado la página del chat y ha "inyectado"
+// el nombre del usuario autenticado en un atributo `data-username` de un elemento HTML.
 const userInfo = document.getElementById('user-info')
-const username = userInfo.dataset.username // Leemos el atributo 'data-username'.
+const username = userInfo.dataset.username // Leemos el nombre de usuario.
 
-// Nos conectamos al servidor de Socket.IO.
+// --- Conexión al Servidor de Socket.IO ---
+// Al llamar a `io()`, el cliente intenta establecer una conexión WebSocket con el servidor.
+// ¡Importante! El navegador automáticamente adjuntará las cookies del dominio actual
+// (incluida nuestra cookie `access_token`) a la petición de conexión (handshake).
+// Así es como el servidor puede autenticar la conexión del socket.
 const socket = io({
+  // El objeto `auth` se envía al servidor durante el handshake.
   auth: {
-    // Pasamos el nombre de usuario real en el 'handshake' (apretón de manos) inicial.
-    // Aunque nuestro servidor ahora lo validará por su cuenta usando la cookie,
-    // es una buena práctica enviarlo para tenerlo disponible en el 'handshake'.
-    username: username,
+    // `serverOffset` es parte de la función de recuperación de estado de conexión.
+    // Lo inicializamos en 0. El cliente le dice al servidor cuál fue el último
+    // mensaje que recibió, y el servidor le reenvía los que se haya perdido.
     serverOffset: 0
   }
 })
 
-// Obtenemos los elementos del DOM con los que vamos a interactuar.
+// --- Selección de Elementos del DOM ---
 const form = document.getElementById('form')
 const input = document.getElementById('input')
 const messages = document.getElementById('messages')
 
-// Guardamos nuestro propio nombre de usuario para poder diferenciar nuestros mensajes.
-// Este valor ahora es el nombre de usuario con el que se hizo login.
+// Guardamos el nombre de usuario propio en una variable para poder identificar
+// fácilmente qué mensajes son nuestros y aplicarles un estilo diferente.
 const selfUsername = username
 
 // --- Manejo de Eventos de Socket.IO ---
 
-// Se ejecuta cuando el servidor nos envía un evento 'chat message'.
+// `socket.on(eventName, callback)`: Escucha eventos provenientes del servidor.
+
+// Se ejecuta cuando el servidor emite un evento 'chat message'.
+// Esto puede ser un mensaje nuevo de cualquier usuario o un mensaje antiguo recuperado.
 socket.on('chat message', (msg, serverOffset, msgUsername, timestamp) => {
   const item = document.createElement('li')
   const time = new Date(timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
 
-  // Guardamos el ID del mensaje en el propio elemento LI para encontrarlo fácilmente después.
+  // Guardamos el ID del mensaje (que es el `serverOffset`) en un atributo `data-id`.
+  // Esto nos permitirá encontrar y manipular este elemento `<li>` fácilmente más tarde.
   item.dataset.id = serverOffset
 
-  let messageHTML = `
+  // Creamos el contenido del mensaje de forma dinámica.
+  const messageContent = document.createElement('div')
+  messageContent.classList.add('message-content')
+  messageContent.innerHTML = `
     <header class="message-header">
       <strong>${msgUsername}</strong>
       <time>${time}</time>
@@ -47,52 +65,65 @@ socket.on('chat message', (msg, serverOffset, msgUsername, timestamp) => {
     <p>${msg}</p>
   `
 
-  // Comparamos el nombre de usuario del mensaje con el nuestro para el estilo y para añadir el botón.
+  // Comparamos el autor del mensaje con el usuario actual.
   if (msgUsername === selfUsername) {
+    // Si somos los autores, añadimos la clase 'sent' para el estilo CSS.
     item.classList.add('sent')
-    // Solo añadimos el botón de borrar a nuestros propios mensajes.
-    messageHTML += `<button class="delete-button" data-id="${serverOffset}">🗑️</button>`
+
+    // Creamos y añadimos un botón de borrar solo a nuestros propios mensajes.
+    const deleteButton = document.createElement('button')
+    deleteButton.classList.add('delete-button')
+    deleteButton.dataset.id = serverOffset // El botón también lleva el ID del mensaje.
+    deleteButton.innerHTML = '🗑️'
+    item.appendChild(deleteButton)
+    item.appendChild(messageContent)
   } else {
+    // Si es un mensaje de otro usuario, añadimos la clase 'received'.
     item.classList.add('received')
+    item.appendChild(messageContent)
   }
 
-  item.innerHTML = messageHTML
-  messages.appendChild(item)
+  messages.appendChild(item) // Añadimos el nuevo mensaje a la lista.
+  // Actualizamos nuestro `serverOffset` con el ID del último mensaje recibido.
   socket.auth.serverOffset = serverOffset
+  // Hacemos scroll automático para que el último mensaje siempre sea visible.
   messages.scrollTop = messages.scrollHeight
 })
 
-// Escuchamos clics en la lista de mensajes (delegación de eventos)
-messages.addEventListener('click', (e) => {
-  // Si el elemento clickeado es un botón de borrar
-  if (e.target.classList.contains('delete-button')) {
-    // Obtenemos el ID del mensaje del atributo data-id del botón.
-    const messageId = e.target.dataset.id
-    // Enviamos el evento al servidor para que borre el mensaje.
-    socket.emit('delete message', messageId)
-  }
-})
-
-// Escuchamos el evento del servidor que nos informa que un mensaje ha sido borrado.
+// Se ejecuta cuando el servidor confirma que un mensaje ha sido borrado.
 socket.on('message deleted', (messageId) => {
-  // Buscamos el elemento del mensaje en el DOM usando su data-id.
+  // Buscamos el elemento del mensaje en el DOM usando el `data-id` que guardamos.
   const messageElement = document.querySelector(`li[data-id="${messageId}"]`)
   if (messageElement) {
-    // Si lo encontramos, lo eliminamos.
-    messageElement.remove()
+    messageElement.remove() // Si lo encontramos, lo eliminamos del DOM.
   }
 })
 
 // --- Manejo de Eventos del DOM ---
 
-// Se ejecuta cuando el usuario envía el formulario.
+// `element.addEventListener(eventName, callback)`: Escucha eventos del usuario en el navegador.
+
+// Se ejecuta cuando el usuario envía el formulario de mensaje.
 form.addEventListener('submit', (e) => {
-  e.preventDefault()
+  e.preventDefault() // Prevenimos que la página se recargue.
 
   if (input.value) {
-    // Enviamos el mensaje al servidor.
+    // `socket.emit(eventName, data)`: Envía un evento al servidor.
+    // Enviamos el contenido del input en un evento 'chat message'.
     socket.emit('chat message', input.value)
-    input.value = ''
+    input.value = '' // Limpiamos el campo de texto.
+  }
+})
+
+// Delegación de eventos para los botones de borrar.
+// En lugar de añadir un listener a cada botón (que pueden no existir aún),
+// añadimos un único listener al contenedor padre (`messages`).
+messages.addEventListener('click', (e) => {
+  // Verificamos si el elemento clickeado (`e.target`) es un botón de borrar.
+  if (e.target.classList.contains('delete-button')) {
+    const messageId = e.target.dataset.id // Obtenemos el ID del mensaje del botón.
+    // Emitimos un evento 'delete message' al servidor con el ID del mensaje a borrar.
+    socket.emit('delete message', messageId)
   }
 })
 
@@ -100,11 +131,13 @@ form.addEventListener('submit', (e) => {
 const logoutButton = document.getElementById('logout-button')
 
 logoutButton.addEventListener('click', () => {
+  // Hacemos una petición POST a la ruta `/logout` del servidor.
   fetch('/logout', {
     method: 'POST'
   }).then(res => {
     if (res.ok) {
-      // Si el logout es exitoso, redirigimos a la página principal.
+      // Si el servidor responde con éxito (ha borrado la cookie),
+      // redirigimos al usuario a la página de inicio.
       window.location.href = '/'
     }
   }).catch(error => {

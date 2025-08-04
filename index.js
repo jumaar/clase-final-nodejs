@@ -1,230 +1,234 @@
+// =============================================================================
+// --- ARCHIVO PRINCIPAL DEL SERVIDOR ---
+// Este archivo es el corazón de la aplicación. Orquesta todas las partes:
+// 1. Configuración del servidor Express.
+// 2. Inicialización del servidor de WebSockets (Socket.IO).
+// 3. Conexión a la base de datos (MongoDB).
+// 4. Definición de middlewares, incluyendo la autenticación por JWT.
+// 5. Creación de las rutas HTTP (API y vistas).
+// 6. Lógica del chat en tiempo real.
+// =============================================================================
+
 // --- Dependencias del Servidor ---
-// Importamos Express, el framework principal para crear el servidor web.
-import express from 'express'
-// Importamos las variables de configuración (puerto, claves secretas, etc.).
-import { PORT, SECRET_JWT_KEY, MONGODB_URI } from './config.js'
-// cookie-parser nos ayuda a leer las cookies que vienen en las peticiones del cliente.
-import cookieParser from 'cookie-parser'
-// jsonwebtoken se usa para crear y verificar los tokens de autenticación.
-import jwt from 'jsonwebtoken'
-// Este es nuestro "repositorio", una capa que se encarga de la lógica de la base de datos de usuarios.
-import { UserRepository } from './user-repository.js'
-// morgan es un logger, nos muestra en la consola las peticiones HTTP que llegan. Útil para depurar.
-import logger from 'morgan'
-// Importamos las herramientas de MongoDB para conectarnos y operar con la base de datos.
-import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb'
-// La clase Server de socket.io para la comunicación en tiempo real.
-import { Server } from 'socket.io'
-// El módulo http de Node.js, necesario para crear un servidor base sobre el que correrá Express y Socket.IO.
-import { createServer } from 'node:http'
+import express from 'express' // Framework para construir el servidor web y las APIs.
+import { PORT, SECRET_JWT_KEY, MONGODB_URI } from './config.js' // Variables de entorno y configuración.
+import cookieParser from 'cookie-parser' // Middleware para parsear cookies en las peticiones.
+import jwt from 'jsonwebtoken' // Para crear y verificar JSON Web Tokens.
+import { UserRepository } from './user-repository.js' // Capa de acceso a datos de usuarios.
+import logger from 'morgan' // Middleware para registrar las peticiones HTTP en la consola.
+import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb' // Driver oficial de MongoDB.
+import { Server } from 'socket.io' // Librería para la comunicación por WebSockets.
+import { createServer } from 'node:http' // Módulo nativo de Node.js para crear servidores HTTP.
 
 // --- Inicialización del Servidor ---
-// Creamos la aplicación Express.
-const app = express()
-// Creamos un servidor HTTP nativo, pasándole nuestra app de Express.
-// Hacemos esto para que Socket.IO pueda "engancharse" al mismo servidor.
+const app = express() // Creamos una instancia de la aplicación Express.
+
+// Creamos un servidor HTTP nativo usando el módulo 'http' de Node.js.
+// Le pasamos la app de Express para que maneje las peticiones.
+// Hacemos esto porque Socket.IO necesita engancharse a un servidor 'http' base,
+// no directamente a la aplicación de Express.
 const server = createServer(app)
-// Inicializamos Socket.IO, conectándolo a nuestro servidor HTTP.
+
+// Inicializamos Socket.IO, vinculándolo a nuestro servidor HTTP.
+// La opción `connectionStateRecovery` habilita una característica de Socket.IO
+// que permite a un cliente que se desconecta temporalmente (ej. por mala conexión)
+// recuperar los mensajes que se perdió durante ese tiempo.
 const io = new Server(server, {
   connectionStateRecovery: {}
 })
 
 // --- Conexión a la Base de Datos de Chat (MongoDB) ---
-// Creamos un cliente de MongoDB con la URI de nuestra configuración.
 const client = new MongoClient(MONGODB_URI, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true
-  }
+  serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
 })
-// Conectamos el cliente a la base de datos. Usamos 'await' en el nivel superior (top-level await).
-await client.connect()
+await client.connect() // Conectamos a la base de datos de forma asíncrona.
 console.log('Conectado exitosamente a MongoDB (chat)')
-// Obtenemos la base de datos 'chatdb' y la colección 'messages'.
 const db = client.db('chatdb')
-const messagesCollection = db.collection('messages')
+const messagesCollection = db.collection('messages') // Colección para guardar los mensajes del chat.
 
-// --- Configuración de Express (Middlewares) ---
-// Configuramos EJS como el motor de plantillas para las vistas.
-app.set('view engine', 'ejs')
-// Usamos el logger 'dev' de morgan para ver las peticiones.
-app.use(logger('dev'))
-// Middleware para que Express entienda peticiones con cuerpo en formato JSON.
-app.use(express.json())
-// Middleware para poder parsear y usar las cookies.
-app.use(cookieParser())
+// --- Configuración de Middlewares de Express ---
+app.set('view engine', 'ejs') // Configuramos EJS como motor de plantillas para renderizar vistas.
+app.use(logger('dev')) // Usamos morgan para logging de peticiones en modo 'dev'.
+app.use(express.json()) // Middleware para que Express pueda parsear cuerpos de petición en formato JSON.
+app.use(cookieParser()) // Middleware para parsear cookies y hacerlas accesibles en `req.cookies`.
+app.use(express.static('public')) // Sirve archivos estáticos (CSS, JS de cliente, imágenes) desde la carpeta 'public'.
 
-// Middleware para servir archivos estáticos (como css, js del cliente, imágenes).
-// Le decimos a Express que la carpeta 'public' contiene archivos a los que
-// se puede acceder directamente desde el navegador.
-app.use(express.static('public'))
-
-// --- Middleware de Autenticación ---
-// Este es nuestro "portero" personalizado. Se ejecuta en CADA petición.
+// --- Middleware de Autenticación para RUTAS HTTP ---
+// Este middleware se ejecuta en CADA petición HTTP que llega al servidor.
+// Su función es verificar si el usuario está autenticado a través de un JWT en una cookie.
 app.use((req, res, next) => {
-  // 1. Intenta obtener el token de la cookie 'access_token'.
-  const token = req.cookies.access_token
-  // 2. Inicializa la sesión del usuario como nula.
-  req.session = { user: null }
+  const token = req.cookies.access_token // 1. Intenta obtener el token de la cookie llamada 'access_token'.
+  req.session = { user: null } // 2. Inicializa la sesión del usuario como nula en el objeto `req`.
+
+  if (!token) return next() // Si no hay token, simplemente continuamos. `req.session.user` seguirá siendo `null`.
 
   try {
-    // 3. Intenta verificar el token usando nuestra clave secreta.
+    // 3. Si hay un token, intenta verificarlo usando la clave secreta.
     const data = jwt.verify(token, SECRET_JWT_KEY)
-    // 4. Si el token es válido, guardamos los datos del usuario en la sesión de la petición.
+    // 4. Si el token es válido, `jwt.verify` devuelve el payload decodificado (los datos del usuario).
+    //    Guardamos estos datos en `req.session.user` para que las rutas posteriores tengan acceso a ellos.
     req.session.user = data
   } catch (error) {
-    // 5. Si el token no es válido o no existe, la sesión del usuario permanece nula.
-    req.session.user = null
+    // 5. Si `jwt.verify` falla (token inválido, expirado, etc.), se lanza un error.
+    //    En este caso, no hacemos nada y `req.session.user` permanece `null`.
+    console.error('Error al verificar el token:', error.message)
   }
 
-  // 6. Llama a next() para que la petición continúe hacia la ruta correspondiente.
+  // 6. Llama a `next()` para pasar el control a la siguiente función de middleware o a la ruta correspondiente.
   next()
 })
 
-// --- Middleware de Autenticación para Socket.IO ---
-// Este middleware es el "portero" de nuestras conexiones WebSocket.
-// Se ejecuta para cada cliente que intenta conectarse.
+// --- Middleware de Autenticación para WEBSOCKETS (Socket.IO) ---
+// Este middleware es específico para Socket.IO y protege las conexiones WebSocket.
+// Se ejecuta una sola vez por cliente, cuando este intenta establecer la conexión inicial (el "handshake").
 io.use((socket, next) => {
-  // 1. Leemos las cookies de la petición inicial de conexión (el 'handshake').
+  // 1. A diferencia de Express, el acceso a las cookies se hace a través de `socket.handshake.headers.cookie`.
   const cookies = socket.handshake.headers.cookie
   if (!cookies) {
-    // Si no hay cookies, no hay forma de autenticarse. Rechazamos la conexión.
-    return next(new Error('Authentication error: No cookies provided'))
+    return next(new Error('Error de autenticación: No se proporcionaron cookies.'))
   }
 
-  // 2. Buscamos nuestra 'access_token' específica dentro del string de cookies.
+  // 2. El string de cookies contiene todas las cookies (ej. "cookie1=valor1; cookie2=valor2").
+  //    Lo parseamos para encontrar nuestra 'access_token'.
   const tokenCookie = cookies.split(';').find(c => c.trim().startsWith('access_token='))
   if (!tokenCookie) {
-    // Si no está el token, rechazamos la conexión.
-    return next(new Error('Authentication error: No token provided'))
+    return next(new Error('Error de autenticación: No se encontró el token.'))
   }
 
-  // 3. Extraemos el valor del token.
+  // 3. Extraemos el valor del token del string "access_token=VALOR".
   const token = tokenCookie.split('=')[1]
 
   try {
-    // 4. Verificamos el token usando la misma clave secreta que en Express.
+    // 4. Verificamos el token con la misma lógica que en el middleware de Express.
     const user = jwt.verify(token, SECRET_JWT_KEY)
-    // 5. Si el token es válido, "adjuntamos" la información del usuario al objeto socket.
-    //    Este objeto 'socket' persistirá durante toda la vida de la conexión.
+    // 5. Si el token es válido, adjuntamos la información del usuario DIRECTAMENTE al objeto `socket`.
+    //    Este objeto `socket` es persistente durante toda la vida de la conexión del cliente,
+    //    por lo que siempre sabremos quién está enviando los mensajes.
     socket.user = user
-    // 6. Llamamos a next() sin error para permitir que la conexión proceda.
+    // 6. Llamamos a `next()` sin error para permitir la conexión.
     next()
   } catch (err) {
-    // 7. Si jwt.verify falla, el token es inválido. Rechazamos la conexión.
-    next(new Error('Authentication error: Invalid token'))
+    // 7. Si el token es inválido, llamamos a `next` con un error, lo que rechazará la conexión.
+    //    El cliente recibirá un evento 'connect_error'.
+    next(new Error('Error de autenticación: Token inválido.'))
   }
 })
 
-// --- Lógica de Socket.IO (Chat en Tiempo Real) ---
+// --- Lógica Principal de Socket.IO (Chat en Tiempo Real) ---
 io.on('connection', async (socket) => {
-  // Gracias a nuestro middleware, aquí ya podemos asumir que 'socket.user' existe y es válido.
-  console.log(`¡Un usuario se ha conectado al chat!: ${socket.user.username}`)
+  // Este bloque se ejecuta cada vez que un cliente se conecta exitosamente (después de pasar el middleware).
+  // Gracias a nuestro middleware, aquí podemos estar seguros de que `socket.user` existe y contiene los datos del usuario.
+  console.log(`✅ Usuario conectado al chat: ${socket.user.username}`)
 
+  // Evento que se dispara cuando el cliente se desconecta.
   socket.on('disconnect', () => {
-    console.log(`El usuario ${socket.user.username} se ha desconectado`)
+    console.log(`❌ Usuario desconectado: ${socket.user.username}`)
   })
 
-  // Escucha el evento 'chat message' que envía el cliente.
+  // Evento que se dispara cuando un cliente envía un mensaje ('chat message').
   socket.on('chat message', async (msg) => {
-    const username = socket.user.username
-      const message = {
-        content: msg,
-        user: username,
-        timestamp: new Date()
-      }
+    const message = {
+      content: msg,
+      user: socket.user.username, // Usamos el username verificado del socket.
+      timestamp: new Date()
+    }
 
     try {
-        // Guardamos el objeto de mensaje completo en la base de datos.
-        const result = await messagesCollection.insertOne(message)
-        // Emitimos el mensaje a todos, incluyendo el nuevo timestamp.
-        io.emit('chat message', message.content, result.insertedId.toString(), message.user, message.timestamp)
+      // 1. Persistimos el mensaje en la base de datos de MongoDB.
+      const result = await messagesCollection.insertOne(message)
+      // 2. Emitimos el mensaje a TODOS los clientes conectados, incluyéndonos a nosotros mismos.
+      //    Enviamos el contenido, el ID del mensaje desde la DB, el usuario y el timestamp.
+      io.emit('chat message', message.content, result.insertedId.toString(), message.user, message.timestamp)
     } catch (e) {
-      console.error(e)
+      console.error('Error al guardar o emitir el mensaje:', e)
     }
   })
 
-  // Lógica para recuperar mensajes si el cliente se desconectó temporalmente.
-  if (!socket.recovered) {
-    try {
-      const serverOffset = socket.handshake.auth.serverOffset
-      const query = serverOffset ? { _id: { $gt: new ObjectId(serverOffset) } } : {}
-      const results = await messagesCollection.find(query).toArray()
-      results.forEach(row => {
-        // Añadimos el timestamp al emitir los mensajes recuperados.
-        socket.emit('chat message', row.content, row._id.toString(), row.user, row.timestamp)
-      })
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  // Escucha el evento para borrar un mensaje.
+  // Evento para borrar un mensaje, solicitado por un cliente.
   socket.on('delete message', async (messageId) => {
     try {
       const objectId = new ObjectId(messageId)
-      // Buscamos el mensaje en la base de datos.
       const message = await messagesCollection.findOne({ _id: objectId })
 
-      // Medida de seguridad: verificamos que el mensaje existe y que el usuario que solicita el borrado es el autor.
+      // IMPORTANTE: Medida de seguridad.
+      // Verificamos que el mensaje existe y que el usuario que intenta borrarlo (`socket.user.username`)
+      // es el mismo que el autor original del mensaje (`message.user`).
       if (message && message.user === socket.user.username) {
         await messagesCollection.deleteOne({ _id: objectId })
-        // Notificamos a todos los clientes que este mensaje debe ser eliminado.
+        // Notificamos a TODOS los clientes que este mensaje debe ser eliminado de su vista.
         io.emit('message deleted', messageId)
       } else {
-        // Si alguien intenta borrar un mensaje que no es suyo, lo podemos registrar.
-        console.log(`Intento de borrado no autorizado por ${socket.user.username} para el mensaje ${messageId}`)
+        console.warn(`Intento de borrado no autorizado por ${socket.user.username} para el mensaje ${messageId}`)
       }
     } catch (e) {
       console.error('Error al borrar el mensaje:', e)
     }
   })
-})
 
-// --- Rutas HTTP (Endpoints de la API y Vistas) ---
-app.get('/', (req, res) => {
-  const { user } = req.session
-  res.render('index', user)
-})
-
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body
-  try {
-    const user = await UserRepository.login({ username, password })
-    const token = jwt.sign(
-      { id: user._id, username: user.username },
-      SECRET_JWT_KEY,
-      { expiresIn: '1h' }
-    )
-    res
-      .cookie('access_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 1000 * 60 * 60
+  // Lógica para recuperar mensajes perdidos (si el cliente se reconecta).
+  // `socket.recovered` es `true` si la conexión es una reconexión exitosa.
+  if (!socket.recovered) {
+    try {
+      // El cliente nos envía el ID del último mensaje que recibió (`serverOffset`).
+      const serverOffset = socket.handshake.auth.serverOffset
+      // Buscamos en la DB todos los mensajes posteriores a ese ID.
+      const query = serverOffset ? { _id: { $gt: new ObjectId(serverOffset) } } : {}
+      const results = await messagesCollection.find(query).toArray()
+      // Enviamos los mensajes perdidos solo a ese cliente.
+      results.forEach(row => {
+        socket.emit('chat message', row.content, row._id.toString(), row.user, row.timestamp)
       })
-      .status(200).send({ user, token })
-  } catch (error) {
-    res.status(401).send({ error: error.message })
+    } catch (e) {
+      console.error('Error al recuperar mensajes:', e)
+    }
   }
 })
 
+// --- Rutas HTTP (Endpoints de la API y Vistas) ---
+
+// Ruta principal: Muestra la página de inicio de sesión/registro.
+app.get('/', (req, res) => {
+  const { user } = req.session // El middleware de autenticación ya pobló `req.session`.
+  res.render('index', { user }) // Pasamos el usuario a la vista (puede ser `null`).
+})
+
+// Ruta para iniciar sesión.
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body
+  try {
+    const user = await UserRepository.login({ username, password }) // 1. Valida credenciales en el repositorio.
+
+    // 2. Si las credenciales son correctas, creamos (firmamos) un JWT.
+    const token = jwt.sign(
+      { id: user._id, username: user.username }, // Payload: Datos que guardamos en el token.
+      SECRET_JWT_KEY, // Clave secreta para la firma.
+      { expiresIn: '1h' } // Opciones: El token expirará en 1 hora.
+    )
+
+    // 3. Enviamos el token al cliente dentro de una cookie.
+    res
+      .cookie('access_token', token, {
+        httpOnly: true, // La cookie no es accesible por JavaScript en el cliente (previene ataques XSS).
+        secure: process.env.NODE_ENV === 'production', // Enviar solo sobre HTTPS en producción.
+        sameSite: 'strict', // La cookie solo se envía en peticiones del mismo sitio (previene ataques CSRF).
+        maxAge: 1000 * 60 * 60 // Tiempo de vida de la cookie en milisegundos (1 hora).
+      })
+      .status(200).json({ message: 'Login exitoso', user })
+  } catch (error) {
+    res.status(401).json({ error: error.message })
+  }
+})
+
+// Ruta para registrar un nuevo usuario.
 app.post('/register', async (req, res) => {
   const { username, password } = req.body
   try {
-    // 1. Creamos el nuevo usuario.
-    const id = await UserRepository.create({ username, password })
+    const id = await UserRepository.create({ username, password }) // 1. Crea el usuario.
 
-    // 2. Inmediatamente después, creamos su token de sesión.
-    const token = jwt.sign(
-      { id, username }, // Usamos los datos que ya tenemos.
-      SECRET_JWT_KEY,
-      { expiresIn: '1h' }
-    )
+    // 2. Después de crear, inicia sesión automáticamente firmando un JWT.
+    const token = jwt.sign({ id, username }, SECRET_JWT_KEY, { expiresIn: '1h' })
 
-    // 3. Establecemos la cookie y enviamos una respuesta de éxito.
-    //    Ahora esta ruta registra E inicia sesión a la vez.
+    // 3. Establece la cookie y envía una respuesta de éxito.
     return res
       .cookie('access_token', token, {
         httpOnly: true,
@@ -233,46 +237,46 @@ app.post('/register', async (req, res) => {
         maxAge: 1000 * 60 * 60
       })
       .status(201)
-      .send({ id, username })
+      .json({ id, username })
   } catch (error) {
-    // Si hay un error (ej. usuario ya existe), lo enviamos como JSON.
     res.status(400).json({ error: error.message })
   }
 })
 
+// Ruta para cerrar sesión.
 app.post('/logout', (req, res) => {
+  // Simplemente le decimos al navegador que elimine la cookie 'access_token'.
   res
     .clearCookie('access_token')
-    .json({ message: 'Logout successful' })
+    .json({ message: 'Logout exitoso' })
 })
 
+// Ruta protegida de ejemplo.
 app.get('/protected', (req, res) => {
   const { user } = req.session
-  if (!user) return res.status(403).send('Access not authorized')
-  res.render('protected', user)
+  // Gracias a nuestro middleware, solo tenemos que comprobar si `req.session.user` existe.
+  if (!user) return res.status(403).send('Acceso no autorizado. Debes iniciar sesión.')
+  res.render('protected', { user })
 })
 
-// --- Ruta para la Vista del Chat ---
-// Esta es la ruta que servirá nuestra aplicación de chat.
+// Ruta para la vista del chat.
 app.get('/chat', (req, res) => {
-  // 1. Obtenemos el usuario de la sesión, que nuestro middleware de autenticación ya ha procesado.
-  const { user } = req.session
+  const { user } = req.session // 1. Obtenemos el usuario de la sesión.
 
-  // 2. Si no hay usuario en la sesión, significa que no ha iniciado sesión.
+  // 2. Si no hay usuario, significa que no ha iniciado sesión o su token es inválido.
   if (!user) {
-    // 3. Lo redirigimos a la página principal, que es nuestro formulario de login/registro.
+    // 3. Lo redirigimos a la página principal para que inicie sesión.
     return res.redirect('/')
   }
 
-  // 4. Si hay un usuario, renderizamos la vista 'chat.ejs'.
-  //    Le pasamos el objeto de usuario a la vista. De esta forma,
-  //    la vista 'chat.ejs' tendrá acceso al nombre de usuario.
+  // 4. Si el usuario está autenticado, renderizamos la vista del chat ('chat.ejs').
+  //    Le pasamos los datos del usuario a la vista para que pueda, por ejemplo, mostrar su nombre.
   res.render('chat', { user })
 })
 
 // --- Arranque del Servidor ---
-// Usamos server.listen en lugar de app.listen para que el servidor HTTP
-// escuche las peticiones, permitiendo que Socket.IO funcione correctamente.
+// Usamos `server.listen` en lugar de `app.listen` para asegurar que tanto
+// Express como Socket.IO están escuchando en el mismo puerto.
 server.listen(PORT, () => {
-  console.log(`🚀 Servidor escuchando en el puerto ${PORT}`)
+  console.log(`🚀 Servidor escuchando en http://localhost:${PORT}`)
 })
