@@ -39,7 +39,10 @@ socket.on('chat message', (msg, serverOffset, msgUsername, timestamp) => {
   // Guardamos el ID del mensaje en el propio elemento LI para encontrarlo fácilmente después.
   item.dataset.id = serverOffset
 
-  let messageHTML = `
+  // Creamos un contenedor para el contenido del mensaje para un mejor control del layout.
+  const messageContent = document.createElement('div')
+  messageContent.classList.add('message-content')
+  messageContent.innerHTML = `
     <header class="message-header">
       <strong>${msgUsername}</strong>
       <time>${time}</time>
@@ -50,13 +53,23 @@ socket.on('chat message', (msg, serverOffset, msgUsername, timestamp) => {
   // Comparamos el nombre de usuario del mensaje con el nuestro para el estilo y para añadir el botón.
   if (msgUsername === selfUsername) {
     item.classList.add('sent')
-    // Solo añadimos el botón de borrar a nuestros propios mensajes.
-    messageHTML += `<button class="delete-button" data-id="${serverOffset}">🗑️</button>`
+
+    // Creamos el botón de borrar como un elemento del DOM.
+    const deleteButton = document.createElement('button')
+    deleteButton.classList.add('delete-button')
+    deleteButton.dataset.id = serverOffset
+    deleteButton.innerHTML = '🗑️'
+
+    // Añadimos el botón y luego el contenido al 'li'.
+    // Esto nos permitirá usar flexbox para posicionarlos.
+    item.appendChild(deleteButton)
+    item.appendChild(messageContent)
   } else {
     item.classList.add('received')
+    // Para los mensajes recibidos, solo añadimos el contenido.
+    item.appendChild(messageContent)
   }
 
-  item.innerHTML = messageHTML
   messages.appendChild(item)
   socket.auth.serverOffset = serverOffset
   messages.scrollTop = messages.scrollHeight

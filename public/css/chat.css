@@ -40,22 +40,19 @@
 }
 
 #messages > li.sent {
-  position: relative; /* Necesario para posicionar el botón de borrar. */
+  display: flex; /* Usamos Flexbox para alinear el botón y el texto. */
+  align-items: center; /* Centramos verticalmente el botón con el contenido. */
   align-self: flex-end;
   background-color: #007bff;
   color: white;
-  padding-left: 30px; /* Creamos espacio a la izquierda DENTRO de la burbuja. */
+  /* El padding general de 'li' ya nos da el espacio necesario. */
 }
 
 /*
  * Estilos para el botón de borrar.
- * Se posiciona de forma absoluta DENTRO del padding del mensaje.
+ * Ahora es un item de flex, no posicionado absolutamente.
 */
 .delete-button {
-  position: absolute;
-  left: 8px; /* Posición dentro del padding. */
-  top: 50%;
-  transform: translateY(-50%);
   background: transparent !important;
   border: none;
   font-size: 0.9rem;
@@ -64,6 +61,7 @@
   opacity: 0.7;
   padding: 5px;
   transition: opacity 0.2s;
+  margin-right: 6px; /* Espacio entre el botón y el texto. */
 }
 
 .delete-button:hover {
@@ -127,9 +125,10 @@ body.dark-mode #messages > li.received {
 #input {
   border-radius: 9999px;
   border: 1px solid #eee;
-  flex: 1; /* <- Esta es la propiedad clave. Le dice al input que "crezca" y ocupe el espacio sobrante */
+  flex-grow: 1; /* Hacemos explícito que el input debe crecer */
   margin: 4px;
-  padding: 0 8px;
+  padding: 0 12px; /* Un poco más de padding para que no se vea tan pegado */
+  width: 0; /* Base de ancho para que flex-grow funcione correctamente */
 }
 
 #input:focus {
@@ -142,6 +141,8 @@ body.dark-mode #messages > li.received {
   border: 0;
   margin: 4px;
   border-radius: 4px;
+  width: 80px; /* Ancho fijo para el botón */
+  flex-shrink: 0; /* Evita que el botón se encoja */
 }
 
 #form>button:hover {
