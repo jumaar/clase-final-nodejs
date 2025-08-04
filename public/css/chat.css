@@ -38,7 +38,7 @@ body {
 #messages > li {
   padding: .5rem 1rem;
   margin-bottom: 10px;
-  border-radius: 18px;
+  border-radius: 15px;
   max-width: 70%;
   word-wrap: break-word; /* Para que el texto largo no rompa el diseño */
 }
@@ -61,14 +61,9 @@ body {
   font-size: 1rem;
   cursor: pointer;
   color: #aaa;
-  opacity: 0; /* Por defecto es invisible */
-  transition: opacity 0.2s ease-in-out;
 }
 
-/* Hacemos visible el botón cuando el usuario pasa el ratón sobre su mensaje */
-#messages > li.sent:hover .delete-button {
-  opacity: 1;
-}
+
 
 #messages > li.received {
   align-self: flex-start;
