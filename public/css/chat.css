@@ -50,7 +50,12 @@ body {
   color: white;
 }
 
-/* Estilos para el botón de borrar */
+/*
+ * Estilos para el botón de borrar.
+ * Se hace siempre visible (opacity: 1) para asegurar la funcionalidad en
+ * dispositivos táctiles (móviles/celulares) donde el efecto :hover no existe.
+ * El botón se posiciona de forma absoluta con respecto al mensaje enviado.
+*/
 .delete-button {
   position: absolute;
   left: -35px; /* Lo posiciona a la izquierda de la burbuja del mensaje */
@@ -61,9 +66,16 @@ body {
   font-size: 1rem;
   cursor: pointer;
   color: #aaa;
+<<<<<<< HEAD
 }
 
 
+=======
+  opacity: 1; /* Hacemos el botón siempre visible */
+}
+
+/* La regla :hover ha sido eliminada para compatibilidad con móviles. */
+>>>>>>> 39f5dd5e96d8a134ec77484ec25b0f545b8a89db
 
 #messages > li.received {
   align-self: flex-start;
@@ -93,19 +105,10 @@ body {
   margin: 0; /* Quitamos el margen por defecto del párrafo */
 }
 
-/* Estilos para el modo oscuro */
-@media (prefers-color-scheme: dark) {
-  #messages > li.received {
-    background-color: #2c2c2c;
-    color: #f0f0f0;
-  }
-}
-
-/* Estilos para el modo oscuro, usando las capacidades del navegador */
-@media (prefers-color-scheme: dark) {
-  #messages > li:not(.sent):nth-child(odd) {
-    background: #2c2c2c;
-  }
+/* Reglas de Modo Oscuro para los Mensajes */
+body.dark-mode #messages > li.received {
+  background-color: #2c2c2c;
+  color: #f0f0f0;
 }
 
 #chat {
@@ -190,9 +193,25 @@ body {
 }
 
 
-@media (prefers-color-scheme: dark) {
-  .chat-header {
-    background: #2c2c2c;
-    border-bottom: 1px solid #444;
-  }
+body.dark-mode .chat-header {
+  background: #2c2c2c;
+  border-bottom: 1px solid #444;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Espacio entre los botones */
+}
+
+.chat-header .theme-toggle-button {
+  position: static; /* Anulamos el posicionamiento fijo para que se quede en la cabecera */
+  width: 30px;
+  height: 30px;
+  font-size: 1.1rem;
+  border-radius: 50%;
+  border: 1px solid #888;
+  background: none;
+  color: inherit; /* Hereda el color del texto para que cambie en modo oscuro */
+  cursor: pointer;
 }

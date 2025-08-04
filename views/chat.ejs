@@ -22,7 +22,10 @@
   <section id="chat">
     <header class="chat-header">
       <span>Bienvenido, <%= user.username %></span>
-      <button id="logout-button">Cerrar Sesión</button>
+      <div class="header-buttons">
+        <button id="theme-toggle-button" class="theme-toggle-button">🌙</button>
+        <button id="logout-button">Cerrar Sesión</button>
+      </div>
     </header>
     <ul id="messages"></ul>
     <form id="form">
@@ -38,6 +41,7 @@
     le diremos a Express que la carpeta 'public' es nuestro directorio de estáticos.
   -->
   <script type="module" src="/js/chat.js"></script>
+  <script src="/js/theme-switcher.js"></script>
 </body>
 
 </html>
